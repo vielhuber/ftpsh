@@ -16,7 +16,7 @@ ftpsh is a bash helper for executing shell commands on remote servers via ftp/sf
 
 simply download the script:
 
-```bash
+```sh
 mkdir ftpsh
 cd ftpsh
 wget -O ftpsh.sh https://raw.githubusercontent.com/vielhuber/ftpsh/main/ftpsh.sh
@@ -25,14 +25,14 @@ chmod +x ftpsh.sh
 
 then create a `.env` file with your credentials:
 
-```bash
+```sh
 cp .env.example .env
 nano .env
 ```
 
 to use `ftpsh` from anywhere instead of `./ftpsh.sh`, create a symlink in your path:
 
-```bash
+```sh
 sudo ln -s $(pwd)/ftpsh.sh /usr/local/bin/ftpsh
 ```
 
@@ -64,7 +64,7 @@ WEB_URL="https://your-server.com"
 
 execute any shell command on the remote server:
 
-```bash
+```sh
 ftpsh ls -la
 ftpsh pwd
 ftpsh php -v
@@ -73,16 +73,23 @@ ftpsh whoami
 
 ### git commands
 
-```bash
+```sh
 ftpsh git status
 ftpsh git pull
 ftpsh git log --oneline -5
 ftpsh git diff
+ftpcall "git add -A . && git commit -m \".\" && git push"
+```
+
+### mysqldump
+
+```sh
+sftpcall "mysqldump -h xxx --port 3306 -u xxx -p\"xxx\" --routines xxx" > dump.sql
 ```
 
 ### composer commands
 
-```bash
+```sh
 ftpsh composer install
 ftpsh composer update
 ftpsh composer dump-autoload
@@ -90,8 +97,32 @@ ftpsh composer dump-autoload
 
 ### complex commands with pipes and redirects
 
-```bash
+```sh
 ftpsh "cat file.txt | grep 'search'"
 ftpsh "find . -name '*.php' | wc -l"
 ftpsh "du -sh *"
+```
+
+# adjust git config to shared host
+
+```sh
+sftpcall git config pack.packSizeLimit 20m
+sftpcall git config pack.windowMemory 10m
+sftpcall git config core.preloadindex false
+sftpcall git config user.name "David Vielhuber"
+sftpcall git config user.email "david@vielhuber.de"
+```
+
+# add remote ssh key for git push/pull
+
+```sh
+sftpcall mkdir -p ./.ssh
+sftpcall ssh-keygen -t rsa -f ./.ssh/id_rsa -N ''
+sftpcall "echo 'Deny from all' > ./.ssh/.htaccess"
+sftpcall cat ./.ssh/id_rsa.pub
+sftpcall "ssh-keyscan github.com 2>/dev/null >> .ssh/known_hosts"
+sftpcall "echo 'Host github.com' > .ssh/config; echo '    IdentityFile ~/.ssh/id_rsa' >> .ssh/config"
+sftpcall chmod 600 ./.ssh/id_rsa
+sftpcall chmod 700 ./.ssh
+sftpcall git config core.sshCommand "ssh -i ./.ssh/id_rsa -o IdentitiesOnly=yes"
 ```
