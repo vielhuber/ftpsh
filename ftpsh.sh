@@ -1,36 +1,35 @@
 #!/bin/bash
 
-
-# --- .env einlesen ---
+# read .env file
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env"
 
 if [ ! -f "$ENV_FILE" ]; then
-    echo "Fehler: .env Datei nicht gefunden ($ENV_FILE)"
+    echo "Error: .env file not found ($ENV_FILE)"
     exit 1
 fi
 
-# .env einlesen (exportiert Variablen)
+# read .env (export variables)
 set -a
 source "$ENV_FILE"
 set +a
 
-# Variablen prüfen
-if [ -z "$HOST" ] || [ -z "$PORT" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$REMOTE_PATH" ] || [ -z "$URL" ]; then
-    echo "Fehler: Mindestens eine erforderliche Variable fehlt in .env!"
-    echo "Benötigt: HOST, PORT, USERNAME, PASSWORD, REMOTE_PATH, URL"
+# check variables
+if [ -z "$HOST" ] || [ -z "$PORT" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$REMOTE_PATH" ] || [ -z "$WEB_URL" ]; then
+    echo "Error: At least one required variable missing in .env!"
+    echo "Required: HOST, PORT, USERNAME, PASSWORD, REMOTE_PATH, WEB_URL"
     exit 1
 fi
 
-# Variablen zu alten Namen für Script-Kompatibilität
+# map variables to old names for script compatibility
 SFTP_HOST="$HOST"
 SFTP_PORT="$PORT"
 SFTP_USER="$USERNAME"
 SFTP_PASS="$PASSWORD"
 REMOTE_PATH="$REMOTE_PATH"
-WEB_URL="$URL"
+WEB_URL="$WEB_URL"
 
-# Protokoll automatisch erkennen (falls nicht in .env gesetzt)
+# automatically detect protocol (if not set in .env)
 if [ -z "$PROTOCOL" ]; then
     if [ "$SFTP_PORT" = "21" ]; then
         PROTOCOL="ftp"
@@ -39,81 +38,85 @@ if [ -z "$PROTOCOL" ]; then
     fi
 fi
 
-# Löschbefehl je nach Protokoll
+# delete command depending on protocol
 if [ "$PROTOCOL" = "ftp" ]; then
     DELETE_CMD="DELE"
 else
     DELETE_CMD="RM"
 fi
 
-# Befehl aus Argumenten (alle Argumente sind der Befehl)
+# command from arguments (all arguments are the command)
 CMD_ARGS=("$@")
 
-# 1. Befehl aus verbleibenden Argumenten zusammenbauen
-# Einfach mit Leerzeichen verbinden - die Remote-Shell interpretiert sie
+# build command from remaining arguments
+# simply join with spaces - the remote shell interprets them
 CMD="${CMD_ARGS[*]}"
 
 if [ -z "$CMD" ]; then
-    echo "Fehler: Kein Befehl angegeben!"
-    echo "Beispiel: ./sftpcall.sh --host server.com --username user --password pass --url https://example.com git status"
+    echo "Error: No command specified!"
+    echo "Example: ./ftpsh.sh git status"
     exit 1
 fi
 
-# DEBUG: Befehl ausgeben
-#echo "DEBUG: Befehl der ausgeführt wird:"
-#echo "$CMD"
-#echo "---"
-
-# 2. Zufälligen Dateinamen generieren (Sicherheit durch Obscurity)
+# generate random filename (security through obscurity)
 RAND_NAME="exec_$(date +%s)_$RANDOM.php"
 LOCAL_FILE="/tmp/$RAND_NAME"
 
-# 3. Den Befehl Base64 kodieren, um Probleme mit Sonderzeichen (' " $) im PHP-String zu vermeiden
+# generate random security token (additional protection)
+SECURITY_TOKEN=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+
+# base64 encode the command to avoid issues with special characters (' " $) in php string
 CMD_B64=$(echo -n "$CMD" | base64)
 
-# 4. PHP Datei erstellen
-# Wir setzen Time Limit hoch und leiten STDERR (2) nach STDOUT (1) um
-cat <<EOF > "$LOCAL_FILE"
+# create php file
+# we set high time limit and redirect stderr (2) to stdout (1)
+cat << EOF > "$LOCAL_FILE"
 <?php
+// security: token-based access protection
+if (!isset(\$_GET['token']) || \$_GET['token'] !== '$SECURITY_TOKEN') {
+    http_response_code(403);
+    die('Access denied');
+}
+
 set_time_limit(0);
-// Versuchen, das Speicherlimit hochzusetzen (z.B. auf 512MB oder -1 für unbegrenzt)
+// try to increase memory limit (e.g. to 512mb or -1 for unlimited)
 @ini_set('memory_limit', '512M');
 
-// Manche Git/System-Befehle brauchen eine HOME Variable
+// some git/system commands need a home variable
 putenv("HOME=" . __DIR__);
-// PWD auf aktuelles Verzeichnis setzen (für \${PWD} im Befehl)
+// set pwd to current directory (for \${pwd} in command)
 putenv("PWD=" . __DIR__);
 
-// Befehl dekodieren und ausführen
+// decode and execute command
 passthru(base64_decode('$CMD_B64') . ' 2>&1');
 unlink(__FILE__);
 ?>
 EOF
 
-# 5. Datei per FTP/SFTP hochladen (curl -T)
-# -s für silent, -S für show error
+# upload file via ftp/sftp (curl -t)
+# -s for silent, -s for show error
 curl -u "$SFTP_USER:$SFTP_PASS" \
-     -T "$LOCAL_FILE" \
-     -s -S \
-     "$PROTOCOL://$SFTP_HOST:$SFTP_PORT/$REMOTE_PATH/"
+    -T "$LOCAL_FILE" \
+    -s -S \
+    "$PROTOCOL://$SFTP_HOST:$SFTP_PORT/$REMOTE_PATH/"
 
 if [ $? -ne 0 ]; then
-    echo "Fehler beim Hochladen der Payload."
+    echo "Error uploading payload."
     rm "$LOCAL_FILE"
     exit 1
 fi
 
-# 6. Datei per HTTP aufrufen und Ergebnis ausgeben
-# Das Ergebnis landet direkt in stdout
-curl -s "$WEB_URL/$RAND_NAME"
+# call file via http and output result (with security token)
+# the result goes directly to stdout
+curl -s "$WEB_URL/$RAND_NAME?token=$SECURITY_TOKEN"
 
-# 7. Datei per FTP/SFTP löschen (Aufräumen)
-# Der Befehl -Q (Quote) sendet Befehle VOR oder NACH dem Transfer.
-# Da wir nichts transferieren, nutzen wir es nur zum Löschen.
+# delete file via ftp/sftp (cleanup)
+# the -q (quote) command sends commands before or after the transfer.
+# since we don't transfer anything, we only use it for deletion.
 curl -u "$SFTP_USER:$SFTP_PASS" \
-     -s -S \
-     -Q "$DELETE_CMD $REMOTE_PATH/$RAND_NAME" \
-     "$PROTOCOL://$SFTP_HOST:$SFTP_PORT/" > /dev/null 2>&1
+    -s -S \
+    -Q "$DELETE_CMD $REMOTE_PATH/$RAND_NAME" \
+    "$PROTOCOL://$SFTP_HOST:$SFTP_PORT/" > /dev/null 2>&1
 
-# Lokale Datei aufräumen
+# clean up local file
 rm "$LOCAL_FILE"
