@@ -1,18 +1,18 @@
 #!/bin/bash
 
 # read .env file
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env"
 
-if [ ! -f "$ENV_FILE" ]; then
-    echo "Error: .env file not found ($ENV_FILE)"
-    exit 1
+if [ -f "$ENV_FILE" ]; then
+    # .env exists, load variables from file
+    set -a
+    source "$ENV_FILE"
+    set +a
+else
+    echo "Warning: .env not found, using environment variables."
 fi
-
-# read .env (export variables)
-set -a
-source "$ENV_FILE"
-set +a
 
 # check variables
 if [ -z "$HOST" ] || [ -z "$PORT" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$REMOTE_PATH" ] || [ -z "$WEB_URL" ]; then
@@ -63,7 +63,7 @@ RAND_NAME="exec_$(date +%s)_$RANDOM.php"
 LOCAL_FILE="/tmp/$RAND_NAME"
 
 # generate random security token (additional protection)
-SECURITY_TOKEN=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+SECURITY_TOKEN=$(echo $RANDOM$(date +%s%N)$RANDOM | md5sum | cut -c1-32)
 
 # base64 encode the command to avoid issues with special characters (' " $) in php string
 CMD_B64=$(echo -n "$CMD" | base64)
