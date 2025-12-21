@@ -105,7 +105,7 @@ ftpsh "find . -name '*.php' | wc -l"
 ftpsh "du -sh *"
 ```
 
-## adjust git config to shared host
+### adjust git config to shared host
 
 ```sh
 sftpcall git config pack.packSizeLimit 20m
@@ -115,7 +115,7 @@ sftpcall git config user.name "David Vielhuber"
 sftpcall git config user.email "david@vielhuber.de"
 ```
 
-## add remote ssh key for git push/pull
+### add remote ssh key for git push/pull
 
 ```sh
 sftpcall mkdir -p ./.ssh
