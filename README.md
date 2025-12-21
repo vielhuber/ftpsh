@@ -86,7 +86,7 @@ ftpcall "git add -A . && git commit -m \".\" && git push"
 ### mysqldump
 
 ```sh
-sftpcall "mysqldump -h xxx --port 3306 -u xxx -p\"xxx\" --routines xxx" > dump.sql
+ftpsh "mysqldump -h xxx --port 3306 -u xxx -p\"xxx\" --routines xxx" > dump.sql
 ```
 
 ### composer commands
@@ -108,23 +108,23 @@ ftpsh "du -sh *"
 ### adjust git config to shared host
 
 ```sh
-sftpcall git config pack.packSizeLimit 20m
-sftpcall git config pack.windowMemory 10m
-sftpcall git config core.preloadindex false
-sftpcall git config user.name "David Vielhuber"
-sftpcall git config user.email "david@vielhuber.de"
+ftpsh git config pack.packSizeLimit 20m
+ftpsh git config pack.windowMemory 10m
+ftpsh git config core.preloadindex false
+ftpsh git config user.name "David Vielhuber"
+ftpsh git config user.email "david@vielhuber.de"
 ```
 
 ### add remote ssh key for git push/pull
 
 ```sh
-sftpcall mkdir -p ./.ssh
-sftpcall ssh-keygen -t rsa -f ./.ssh/id_rsa -N ''
-sftpcall "echo 'Deny from all' > ./.ssh/.htaccess"
-sftpcall cat ./.ssh/id_rsa.pub
-sftpcall "ssh-keyscan github.com 2>/dev/null >> .ssh/known_hosts"
-sftpcall "echo 'Host github.com' > .ssh/config; echo '    IdentityFile ~/.ssh/id_rsa' >> .ssh/config"
-sftpcall chmod 600 ./.ssh/id_rsa
-sftpcall chmod 700 ./.ssh
-sftpcall git config core.sshCommand "ssh -i ./.ssh/id_rsa -o IdentitiesOnly=yes"
+ftpsh mkdir -p ./.ssh
+ftpsh ssh-keygen -t rsa -f ./.ssh/id_rsa -N ''
+ftpsh "echo 'Deny from all' > ./.ssh/.htaccess"
+ftpsh cat ./.ssh/id_rsa.pub
+ftpsh "ssh-keyscan github.com 2>/dev/null >> .ssh/known_hosts"
+ftpsh "echo 'Host github.com' > .ssh/config; echo '    IdentityFile ~/.ssh/id_rsa' >> .ssh/config"
+ftpsh chmod 600 ./.ssh/id_rsa
+ftpsh chmod 700 ./.ssh
+ftpsh git config core.sshCommand "ssh -i ./.ssh/id_rsa -o IdentitiesOnly=yes"
 ```
