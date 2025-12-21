@@ -58,6 +58,8 @@ WEB_URL="https://your-server.com"
 - `REMOTE_PATH`: remote directory path where php files can be executed
 - `WEB_URL`: web uRL to access the remote path
 
+additionally environment variables that are already set will be used.
+
 ## usage
 
 ### basic commands
