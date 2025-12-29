@@ -4,23 +4,43 @@
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 
-# check if --env flag is provided
-if [ "$1" = "--env" ]; then
-    if [ -z "$2" ]; then
-        echo "Error: --env requires a filename argument"
-        echo "Example: ./ftpsh.sh --env my-project.env git status"
-        exit 1
-    fi
-    # check if absolute path or relative
-    if [[ "$2" = /* ]]; then
-        ENV_FILE="$2"
-    else
-        ENV_FILE="$SCRIPT_DIR/$2"
-    fi
-    shift 2 # remove --env and filename from arguments
-else
-    ENV_FILE="$SCRIPT_DIR/.env"
-fi
+# parse flags (allow any order)
+DOWNLOAD_MODE=false
+DOWNLOAD_FILE=""
+ENV_FILE="$SCRIPT_DIR/.env"
+
+while [[ "$1" =~ ^-- ]]; do
+    case "$1" in
+        --download)
+            DOWNLOAD_MODE=true
+            if [ -z "$2" ]; then
+                echo "Error: --download requires a filename argument"
+                echo "Example: ./ftpsh.sh --download backup.tar.gz"
+                exit 1
+            fi
+            DOWNLOAD_FILE="$2"
+            shift 2
+            ;;
+        --env)
+            if [ -z "$2" ]; then
+                echo "Error: --env requires a filename argument"
+                echo "Example: ./ftpsh.sh --env my-project.env git status"
+                exit 1
+            fi
+            # check if absolute path or relative
+            if [[ "$2" = /* ]]; then
+                ENV_FILE="$2"
+            else
+                ENV_FILE="$SCRIPT_DIR/$2"
+            fi
+            shift 2
+            ;;
+        *)
+            echo "Error: Unknown flag $1"
+            exit 1
+            ;;
+    esac
+done
 
 if [ -f "$ENV_FILE" ]; then
     # env file exists, load variables
@@ -61,6 +81,14 @@ else
     DELETE_CMD="RM"
 fi
 
+# handle download mode or regular command mode
+if [ "$DOWNLOAD_MODE" = true ]; then
+    # download mode: directly download file via http with progress
+    curl --progress-bar \
+        "$WEB_URL/$DOWNLOAD_FILE"
+    exit $?
+fi
+
 # command from arguments (all arguments are the command)
 CMD_ARGS=("$@")
 
@@ -72,6 +100,7 @@ if [ -z "$CMD" ]; then
     echo "Error: No command specified!"
     echo "Example: ./ftpsh.sh git status"
     echo "         ./ftpsh.sh --env my-project.env git status"
+    echo "         ./ftpsh.sh --download backup.tar.gz > backup.tar.gz"
     exit 1
 fi
 
@@ -86,7 +115,6 @@ SECURITY_TOKEN=$(echo $RANDOM$(date +%s%N)$RANDOM | md5sum | cut -c1-32)
 CMD_B64=$(echo -n "$CMD" | base64)
 
 # create php file
-# we set high time limit and redirect stderr (2) to stdout (1)
 cat << EOF > "$LOCAL_FILE"
 <?php
 // security: token-based access protection
@@ -123,13 +151,10 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# call file via http and output result (with security token)
-# the result goes directly to stdout
+# standard mode: call file via http and output result directly
 curl -s "$WEB_URL/$RAND_NAME?token=$SECURITY_TOKEN"
 
 # delete file via ftp/sftp (cleanup)
-# the -q (quote) command sends commands before or after the transfer.
-# since we don't transfer anything, we only use it for deletion.
 curl -u "$SFTP_USER:$SFTP_PASS" \
     -s -S \
     -Q "$DELETE_CMD $REMOTE_PATH/$RAND_NAME" \

@@ -62,6 +62,11 @@ WEB_URL="https://your-server.com"
 if you want to choose another file, you can define one with `ftpsh --env my-project.env ...`. \
 if no `.env`-file is set or found, globally present environment variables are used.
 
+**flags:**
+
+- `--env <file>`: use a specific environment file (absolute or relative path)
+- `--download <filename>`: download a file from the remote server via http (with progress bar)
+
 ## usage
 
 you can now execute any shell command on the remote server:
@@ -105,6 +110,14 @@ ftpsh composer dump-autoload
 ftpsh "cat file.txt | grep 'search'"
 ftpsh "find . -name '*.php' | wc -l"
 ftpsh "du -sh *"
+```
+
+### backups and downloads
+
+```sh
+ftpsh tar -czf backup.tar.gz .
+ftpsh --download backup.tar.gz > backup.tar.gz
+ftpsh rm backup.tar.gz
 ```
 
 ### adjust git config to shared host
