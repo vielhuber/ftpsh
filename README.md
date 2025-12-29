@@ -29,6 +29,11 @@ to use `ftpsh` from anywhere instead of `./ftpsh.sh`, create a symlink in your p
 sudo ln -s $(pwd)/ftpsh.sh /usr/local/bin/ftpsh
 ```
 
+**flags:**
+
+- `--env <file>`: use a specific environment file (absolute or relative path)
+- `--download <filename>`: download a file from the remote server via http (with progress bar)
+
 ## configuration
 
 then create a `.env` file with your credentials:
@@ -58,14 +63,9 @@ WEB_URL="https://your-server.com"
 - `REMOTE_PATH`: remote directory path where php files can be executed
 - `WEB_URL`: web url to access the remote path
 
-`ftpsh` automatically reads an `.env`-file. \
+if preset `ftpsh` automatically reads an `.env`-file. \
 if you want to choose another file, you can define one with `ftpsh --env my-project.env ...`. \
 if no `.env`-file is set or found, globally present environment variables are used.
-
-**flags:**
-
-- `--env <file>`: use a specific environment file (absolute or relative path)
-- `--download <filename>`: download a file from the remote server via http (with progress bar)
 
 ## usage
 
@@ -112,7 +112,7 @@ ftpsh "find . -name '*.php' | wc -l"
 ftpsh "du -sh *"
 ```
 
-### backups and downloads
+### backups
 
 ```sh
 ftpsh tar -czf backup.tar.gz .
