@@ -11,7 +11,12 @@ if [ "$1" = "--env" ]; then
         echo "Example: ./ftpsh.sh --env my-project.env git status"
         exit 1
     fi
-    ENV_FILE="$SCRIPT_DIR/$2"
+    # check if absolute path or relative
+    if [[ "$2" = /* ]]; then
+        ENV_FILE="$2"
+    else
+        ENV_FILE="$SCRIPT_DIR/$2"
+    fi
     shift 2 # remove --env and filename from arguments
 else
     ENV_FILE="$SCRIPT_DIR/.env"
