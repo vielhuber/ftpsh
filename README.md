@@ -58,8 +58,8 @@ WEB_URL="https://your-server.com"
 - `REMOTE_PATH`: remote directory path where php files can be executed
 - `WEB_URL`: web url to access the remote path
 
-`ftpsh` automatically reads an `.env`-file.
-if you want to choose another file, you can define one with `ftpsh --env my-project.env ...`.
+`ftpsh` automatically reads an `.env`-file. \
+if you want to choose another file, you can define one with `ftpsh --env my-project.env ...`. \
 if no `.env`-file is set or found, globally present environment variables are used.
 
 ## usage
