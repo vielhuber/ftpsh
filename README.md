@@ -23,13 +23,6 @@ wget -O ftpsh.sh https://raw.githubusercontent.com/vielhuber/ftpsh/main/ftpsh.sh
 chmod +x ftpsh.sh
 ```
 
-then create a `.env` file with your credentials:
-
-```sh
-cp .env.example .env
-nano .env
-```
-
 to use `ftpsh` from anywhere instead of `./ftpsh.sh`, create a symlink in your path:
 
 ```sh
@@ -38,7 +31,14 @@ sudo ln -s $(pwd)/ftpsh.sh /usr/local/bin/ftpsh
 
 ## configuration
 
-edit the `.env` file with your server credentials:
+then create a `custom-page.env` file with your credentials:
+
+```sh
+cp example.env custom-page-1.env
+nano custom-page-1.env
+```
+
+edit the `custom-page.env` file with your server credentials:
 
 ```env
 HOST=your-server.com
@@ -58,13 +58,17 @@ WEB_URL="https://your-server.com"
 - `REMOTE_PATH`: remote directory path where php files can be executed
 - `WEB_URL`: web url to access the remote path
 
-additionally environment variables that are already set will be used.
-
 ## usage
 
 ### basic commands
 
-execute any shell command on the remote server:
+before executing any commands, source the specific .env file:
+
+```sh
+source custom-page-1.env
+```
+
+now execute any shell command on the remote server:
 
 ```sh
 ftpsh ls -la
@@ -80,7 +84,7 @@ ftpsh git status
 ftpsh git pull
 ftpsh git log --oneline -5
 ftpsh git diff
-ftpcall "git add -A . && git commit -m \".\" && git push"
+ftpsh "git add -A . && git commit -m \".\" && git push"
 ```
 
 ### mysqldump
