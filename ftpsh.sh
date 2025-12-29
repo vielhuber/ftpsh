@@ -1,22 +1,33 @@
 #!/bin/bash
 
-# read .env file
+# read environment file
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/.env"
+
+# check if --env flag is provided
+if [ "$1" = "--env" ]; then
+    if [ -z "$2" ]; then
+        echo "Error: --env requires a filename argument"
+        echo "Example: ./ftpsh.sh --env my-project.env git status"
+        exit 1
+    fi
+    ENV_FILE="$SCRIPT_DIR/$2"
+    shift 2 # remove --env and filename from arguments
+else
+    ENV_FILE="$SCRIPT_DIR/.env"
+fi
 
 if [ -f "$ENV_FILE" ]; then
-    # .env exists, load variables from file
+    # env file exists, load variables
     set -a
     source "$ENV_FILE"
     set +a
-else
-    echo "Warning: .env not found, using environment variables."
 fi
+# if env file doesn't exist or is not set, environment variables should be already set
 
 # check variables
 if [ -z "$HOST" ] || [ -z "$PORT" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$REMOTE_PATH" ] || [ -z "$WEB_URL" ]; then
-    echo "Error: At least one required variable missing in .env!"
+    echo "Error: At least one required variable missing in environment!"
     echo "Required: HOST, PORT, USERNAME, PASSWORD, REMOTE_PATH, WEB_URL"
     exit 1
 fi
@@ -55,6 +66,7 @@ CMD="${CMD_ARGS[*]}"
 if [ -z "$CMD" ]; then
     echo "Error: No command specified!"
     echo "Example: ./ftpsh.sh git status"
+    echo "         ./ftpsh.sh --env my-project.env git status"
     exit 1
 fi
 

@@ -31,14 +31,14 @@ sudo ln -s $(pwd)/ftpsh.sh /usr/local/bin/ftpsh
 
 ## configuration
 
-then create a `custom-page.env` file with your credentials:
+then create a `.env` file with your credentials:
 
 ```sh
-cp example.env custom-page-1.env
-nano custom-page-1.env
+cp .env.example .env
+nano .env
 ```
 
-edit the `custom-page.env` file with your server credentials:
+edit the `.env` file with your server credentials:
 
 ```env
 HOST=your-server.com
@@ -58,17 +58,15 @@ WEB_URL="https://your-server.com"
 - `REMOTE_PATH`: remote directory path where php files can be executed
 - `WEB_URL`: web url to access the remote path
 
+`ftpsh` automatically reads an `.env`-file.
+if you want to choose another file, you can define one with `ftpsh --env my-project.env ...`.
+if no `.env`-file is set or found, globally present environment variables are used.
+
 ## usage
 
+you can now execute any shell command on the remote server:
+
 ### basic commands
-
-before executing any commands, source the specific .env file:
-
-```sh
-source custom-page-1.env
-```
-
-now execute any shell command on the remote server:
 
 ```sh
 ftpsh ls -la
