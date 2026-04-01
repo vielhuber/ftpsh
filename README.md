@@ -1,3 +1,8 @@
+[![GitHub Tag](https://img.shields.io/github/v/tag/vielhuber/ftpsh)](https://github.com/vielhuber/ftpsh/tags)
+[![Code Style](https://img.shields.io/badge/code_style-psr--12-ff69b4.svg)](https://www.php-fig.org/psr/psr-12/)
+[![License](https://img.shields.io/github/license/vielhuber/ftpsh)](https://github.com/vielhuber/ftpsh/blob/main/LICENSE.md)
+[![Last Commit](https://img.shields.io/github/last-commit/vielhuber/ftpsh)](https://github.com/vielhuber/ftpsh/commits)
+
 📂 ftpsh 📂
 
 ftpsh is a bash helper for executing shell commands on remote servers via ftp/sftp. with its help you can run any shell command on a remote server that only has ftp/sftp access and php support. this enables for example `git` or `mysqldump` if present on the host. it handles the upload, execution, and cleanup automatically in a secure way.
