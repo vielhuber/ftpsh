@@ -120,6 +120,23 @@ fi
 # generate random filename (security through obscurity)
 RAND_NAME="exec_$(randomHex 16).php"
 LOCAL_FILE="/tmp/$RAND_NAME"
+UPLOADED=false
+
+cleanup() {
+    if [ "$UPLOADED" = true ]; then
+        curl -u "$SFTP_USER:$SFTP_PASS" \
+            -s -S --connect-timeout 10 --max-time 30 \
+            -Q "$DELETE_CMD $REMOTE_PATH/$RAND_NAME" \
+            "$PROTOCOL://$SFTP_HOST:$SFTP_PORT/" > /dev/null 2>&1
+    fi
+    if [ -f "$LOCAL_FILE" ]; then
+        rm "$LOCAL_FILE"
+    fi
+}
+
+trap cleanup EXIT
+trap 'cleanup; trap - EXIT; exit 130' INT
+trap 'cleanup; trap - EXIT; exit 143' TERM
 
 # generate random security token (additional protection)
 SECURITY_TOKEN=$(randomHex 32)
@@ -134,7 +151,9 @@ cat << EOF > "$LOCAL_FILE"
 <?php
 // security: short-lived token-based access protection
 if (time() - $CREATED_AT > $TTL) {
-    @unlink(__FILE__);
+    if (is_file(__FILE__)) {
+        unlink(__FILE__);
+    }
     http_response_code(410);
     die('Expired');
 }
@@ -147,7 +166,7 @@ if (!hash_equals('$SECURITY_TOKEN', \$token)) {
 
 set_time_limit(0);
 // try to increase memory limit (e.g. to 512mb or -1 for unlimited)
-@ini_set('memory_limit', '512M');
+ini_set('memory_limit', '512M');
 
 // some git/system commands need a home variable
 putenv("HOME=" . __DIR__);
@@ -157,11 +176,15 @@ putenv("PWD=" . __DIR__);
 // decode and execute command
 \$command = base64_decode('$CMD_B64', true);
 if (\$command === false) {
-    @unlink(__FILE__);
+    if (is_file(__FILE__)) {
+        unlink(__FILE__);
+    }
     http_response_code(500);
     die('Invalid command');
 }
-@unlink(__FILE__);
+if (is_file(__FILE__)) {
+    unlink(__FILE__);
+}
 passthru(\$command . ' 2>&1');
 ?>
 EOF
@@ -170,23 +193,18 @@ EOF
 # -s for silent, -s for show error
 curl -u "$SFTP_USER:$SFTP_PASS" \
     -T "$LOCAL_FILE" \
-    -s -S \
+    -s -S --fail --connect-timeout 10 --max-time 60 \
     "$PROTOCOL://$SFTP_HOST:$SFTP_PORT/$REMOTE_PATH/"
 
 if [ $? -ne 0 ]; then
     echo "Error uploading payload."
-    rm "$LOCAL_FILE"
     exit 1
 fi
+UPLOADED=true
 
 # standard mode: call file via http and output result directly
-curl -s -H "X-Ftpsh-Token: $SECURITY_TOKEN" "$WEB_URL/$RAND_NAME"
-
-# delete file via ftp/sftp (cleanup)
-curl -u "$SFTP_USER:$SFTP_PASS" \
-    -s -S \
-    -Q "$DELETE_CMD $REMOTE_PATH/$RAND_NAME" \
-    "$PROTOCOL://$SFTP_HOST:$SFTP_PORT/" > /dev/null 2>&1
-
-# clean up local file
-rm "$LOCAL_FILE"
+curl -s -S --fail --connect-timeout 10 --max-time 120 -H "X-Ftpsh-Token: $SECURITY_TOKEN" "$WEB_URL/$RAND_NAME"
+CURL_STATUS=$?
+cleanup
+trap - EXIT INT TERM
+exit $CURL_STATUS
