@@ -4,6 +4,19 @@
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 
+randomHex() {
+    local bytes="$1"
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex "$bytes" && return
+    fi
+    if [ -r /dev/urandom ]; then
+        LC_ALL=C tr -dc 'a-f0-9' < /dev/urandom | head -c $((bytes * 2))
+        echo
+        return
+    fi
+    printf '%s%s%s' "$RANDOM" "$(date +%s%N)" "$$" | cksum | awk '{print $1}'
+}
+
 # parse flags (allow any order)
 DOWNLOAD_MODE=false
 DOWNLOAD_FILE=""
@@ -105,20 +118,29 @@ if [ -z "$CMD" ]; then
 fi
 
 # generate random filename (security through obscurity)
-RAND_NAME="exec_$(date +%s)_$RANDOM.php"
+RAND_NAME="exec_$(randomHex 16).php"
 LOCAL_FILE="/tmp/$RAND_NAME"
 
 # generate random security token (additional protection)
-SECURITY_TOKEN=$(echo $RANDOM$(date +%s%N)$RANDOM | md5sum | cut -c1-32)
+SECURITY_TOKEN=$(randomHex 32)
+CREATED_AT=$(date +%s)
+TTL=60
 
 # base64 encode the command to avoid issues with special characters (' " $) in php string
-CMD_B64=$(echo -n "$CMD" | base64)
+CMD_B64=$(echo -n "$CMD" | base64 | tr -d '\n')
 
 # create php file
 cat << EOF > "$LOCAL_FILE"
 <?php
-// security: token-based access protection
-if (!isset(\$_GET['token']) || \$_GET['token'] !== '$SECURITY_TOKEN') {
+// security: short-lived token-based access protection
+if (time() - $CREATED_AT > $TTL) {
+    @unlink(__FILE__);
+    http_response_code(410);
+    die('Expired');
+}
+
+\$token = \$_SERVER['HTTP_X_FTPSH_TOKEN'] ?? '';
+if (!hash_equals('$SECURITY_TOKEN', \$token)) {
     http_response_code(403);
     die('Access denied');
 }
@@ -133,8 +155,14 @@ putenv("HOME=" . __DIR__);
 putenv("PWD=" . __DIR__);
 
 // decode and execute command
-passthru(base64_decode('$CMD_B64') . ' 2>&1');
-unlink(__FILE__);
+\$command = base64_decode('$CMD_B64', true);
+if (\$command === false) {
+    @unlink(__FILE__);
+    http_response_code(500);
+    die('Invalid command');
+}
+@unlink(__FILE__);
+passthru(\$command . ' 2>&1');
 ?>
 EOF
 
@@ -152,7 +180,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # standard mode: call file via http and output result directly
-curl -s "$WEB_URL/$RAND_NAME?token=$SECURITY_TOKEN"
+curl -s -H "X-Ftpsh-Token: $SECURITY_TOKEN" "$WEB_URL/$RAND_NAME"
 
 # delete file via ftp/sftp (cleanup)
 curl -u "$SFTP_USER:$SFTP_PASS" \
