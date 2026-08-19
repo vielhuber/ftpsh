@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 
 randomHex() {
     local bytes="$1"
-    if command -v openssl >/dev/null 2>&1; then
+    if command -v openssl > /dev/null 2>&1; then
         openssl rand -hex "$bytes" && return
     fi
     if [ -r /dev/urandom ]; then
@@ -94,6 +94,22 @@ else
     DELETE_CMD="RM"
 fi
 
+curlWithProtocolSecurity() {
+    if [ "$PROTOCOL" != "ftp" ]; then
+        curl "$@"
+        return $?
+    fi
+
+    curl --ssl-reqd "$@"
+    local curlStatus=$?
+    if [ "$curlStatus" -ne 64 ]; then
+        return "$curlStatus"
+    fi
+
+    echo "Warning: FTPS is unavailable; falling back to unencrypted FTP." >&2
+    curl "$@"
+}
+
 # handle download mode or regular command mode
 if [ "$DOWNLOAD_MODE" = true ]; then
     # download mode: directly download file via http with progress
@@ -124,7 +140,7 @@ UPLOADED=false
 
 cleanup() {
     if [ "$UPLOADED" = true ]; then
-        curl -u "$SFTP_USER:$SFTP_PASS" \
+        curlWithProtocolSecurity -u "$SFTP_USER:$SFTP_PASS" \
             -s -S --connect-timeout 10 --max-time 30 \
             -Q "$DELETE_CMD $REMOTE_PATH/$RAND_NAME" \
             "$PROTOCOL://$SFTP_HOST:$SFTP_PORT/" > /dev/null 2>&1
@@ -191,7 +207,7 @@ EOF
 
 # upload file via ftp/sftp (curl -t)
 # -s for silent, -s for show error
-curl -u "$SFTP_USER:$SFTP_PASS" \
+curlWithProtocolSecurity -u "$SFTP_USER:$SFTP_PASS" \
     -T "$LOCAL_FILE" \
     -s -S --fail --connect-timeout 10 --max-time 60 \
     "$PROTOCOL://$SFTP_HOST:$SFTP_PORT/$REMOTE_PATH/"
