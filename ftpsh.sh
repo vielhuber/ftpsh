@@ -263,7 +263,7 @@ fi
 UPLOADED=true
 
 # standard mode: call file via http and output result directly
-curl -s -S --fail --connect-timeout 10 --max-time 120 -H "X-Ftpsh-Token: $SECURITY_TOKEN" "$WEB_URL/$RAND_NAME"
+curl -s -S --fail --connect-timeout 10 -H "X-Ftpsh-Token: $SECURITY_TOKEN" "$WEB_URL/$RAND_NAME"
 CURL_STATUS=$?
 cleanup
 trap - EXIT INT TERM
