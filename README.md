@@ -121,7 +121,7 @@ ftpsh "du -sh *"
 ### backups
 
 ```sh
-ftpsh tar -czf backup.tar.gz .
+ftpsh "tar --exclude='node_modules' --exclude='.git' --exclude='backwpup*' -czf backup.tar.gz ."
 ftpsh --download backup.tar.gz > backup.tar.gz
 ftpsh rm backup.tar.gz
 ```
