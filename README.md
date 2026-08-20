@@ -148,3 +148,14 @@ ftpsh chmod 600 ./.ssh/id_rsa
 ftpsh chmod 700 ./.ssh
 ftpsh git config core.sshCommand "ssh -i ./.ssh/id_rsa -o IdentitiesOnly=yes"
 ```
+
+### poor man's git
+
+```sh
+ftpsh mkdir tmp
+ftpsh cd tmp
+ftpsh git clone git@github.com:xxx/xxx.git .
+ftpsh mv tmp/.git .git
+ftpsh rm -rf tmp/
+ftpsh git status
+```
