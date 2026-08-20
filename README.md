@@ -144,10 +144,9 @@ ftpsh ssh-keygen -t rsa -f ./.ssh/id_rsa -N ''
 ftpsh "echo 'Deny from all' > ./.ssh/.htaccess"
 ftpsh cat ./.ssh/id_rsa.pub
 ftpsh "ssh-keyscan github.com 2>/dev/null >> .ssh/known_hosts"
-ftpsh "echo 'Host github.com' > .ssh/config; echo '    IdentityFile ~/.ssh/id_rsa' >> .ssh/config"
 ftpsh chmod 600 ./.ssh/id_rsa
 ftpsh chmod 700 ./.ssh
-ftpsh git config core.sshCommand "ssh -i ./.ssh/id_rsa -o IdentitiesOnly=yes"
+ftpsh 'git config --global core.sshCommand "ssh -i $PWD/.ssh/id_rsa -o UserKnownHostsFile=$PWD/.ssh/known_hosts -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"'
 ```
 
 ### add remote ssh key from local machine
@@ -161,10 +160,10 @@ ftpsh "echo 'Deny from all' > ./.ssh/.htaccess"
 ftpsh --upload "$KEY_DIRECTORY/id_rsa" .ssh/id_rsa
 ftpsh --upload "$KEY_DIRECTORY/id_rsa.pub" .ssh/id_rsa.pub
 ftpsh --upload "$KEY_DIRECTORY/known_hosts" .ssh/known_hosts
-ftpsh "echo 'Host github.com' > .ssh/config; echo '    IdentityFile ~/.ssh/id_rsa' >> .ssh/config"
 ftpsh chmod 700 ./.ssh
 ftpsh chmod 600 ./.ssh/id_rsa
-ftpsh chmod 644 ./.ssh/id_rsa.pub ./.ssh/known_hosts ./.ssh/config
+ftpsh chmod 644 ./.ssh/id_rsa.pub ./.ssh/known_hosts
+ftpsh 'git config --global core.sshCommand "ssh -i $PWD/.ssh/id_rsa -o UserKnownHostsFile=$PWD/.ssh/known_hosts -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"'
 ftpsh cat ./.ssh/id_rsa.pub
 rm -rf "$KEY_DIRECTORY"
 ```

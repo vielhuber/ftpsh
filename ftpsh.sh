@@ -180,6 +180,7 @@ fi
 # generate random filename (security through obscurity)
 RAND_NAME="exec_$(randomHex 16).php"
 LOCAL_FILE="/tmp/$RAND_NAME"
+COMMAND_STATUS_FILE="/tmp/${RAND_NAME}.status"
 UPLOADED=false
 
 cleanup() {
@@ -192,6 +193,9 @@ cleanup() {
     if [ -f "$LOCAL_FILE" ]; then
         rm "$LOCAL_FILE"
     fi
+    if [ -f "$COMMAND_STATUS_FILE" ]; then
+        rm "$COMMAND_STATUS_FILE"
+    fi
 }
 
 trap cleanup EXIT
@@ -200,6 +204,7 @@ trap 'cleanup; trap - EXIT; exit 143' TERM
 
 # generate random security token (additional protection)
 SECURITY_TOKEN=$(randomHex 32)
+EXIT_MARKER="__FTPSH_EXIT_${SECURITY_TOKEN}__:"
 CREATED_AT=$(date +%s)
 TTL=60
 
@@ -245,7 +250,9 @@ if (\$command === false) {
 if (is_file(__FILE__)) {
     unlink(__FILE__);
 }
-passthru(\$command . ' 2>&1');
+\$commandStatus = 0;
+passthru(\$command . ' 2>&1', \$commandStatus);
+echo PHP_EOL . '$EXIT_MARKER' . \$commandStatus . PHP_EOL;
 ?>
 EOF
 
@@ -263,8 +270,40 @@ fi
 UPLOADED=true
 
 # standard mode: call file via http and output result directly
-curl -s -S --fail --connect-timeout 10 -H "X-Ftpsh-Token: $SECURITY_TOKEN" "$WEB_URL/$RAND_NAME"
-CURL_STATUS=$?
+curl -s -S --fail --connect-timeout 10 -H "X-Ftpsh-Token: $SECURITY_TOKEN" "$WEB_URL/$RAND_NAME" |
+    awk -v marker="$EXIT_MARKER" -v statusFile="$COMMAND_STATUS_FILE" '
+        index($0, marker) == 1 {
+            print substr($0, length(marker) + 1) > statusFile
+            next
+        }
+        {
+            print
+            fflush()
+        }
+    '
+PIPE_STATUSES=("${PIPESTATUS[@]}")
+CURL_STATUS="${PIPE_STATUSES[0]}"
+PARSER_STATUS="${PIPE_STATUSES[1]}"
+
+COMMAND_STATUS=1
+if [ "$CURL_STATUS" -ne 0 ]; then
+    echo "Error: Remote command request failed with curl exit code $CURL_STATUS." >&2
+    COMMAND_STATUS="$CURL_STATUS"
+elif [ "$PARSER_STATUS" -ne 0 ]; then
+    echo "Error: Could not parse the remote command response." >&2
+    COMMAND_STATUS="$PARSER_STATUS"
+elif [ ! -s "$COMMAND_STATUS_FILE" ]; then
+    echo "Error: Remote command response ended before completion; the server may have terminated the command." >&2
+else
+    read -r COMMAND_STATUS < "$COMMAND_STATUS_FILE"
+    if [[ ! "$COMMAND_STATUS" =~ ^[0-9]+$ ]]; then
+        echo "Error: Invalid remote command exit code." >&2
+        COMMAND_STATUS=1
+    elif [ "$COMMAND_STATUS" -ne 0 ]; then
+        echo "Error: Remote command failed with exit code $COMMAND_STATUS." >&2
+    fi
+fi
+
 cleanup
 trap - EXIT INT TERM
-exit $CURL_STATUS
+exit "$COMMAND_STATUS"
