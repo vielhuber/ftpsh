@@ -38,6 +38,7 @@ sudo ln -s $(pwd)/ftpsh.sh /usr/local/bin/ftpsh
 
 - `--env <file>`: use a specific environment file (absolute or relative path)
 - `--download <filename>`: download a file from the remote server via http (with progress bar)
+- `--upload <local-filename> [remote-filename]`: upload a local file via ftp/sftp (with progress bar)
 
 ## configuration
 
@@ -149,12 +150,29 @@ ftpsh chmod 700 ./.ssh
 ftpsh git config core.sshCommand "ssh -i ./.ssh/id_rsa -o IdentitiesOnly=yes"
 ```
 
+### add remote ssh key from local machine
+
+```sh
+KEY_DIRECTORY="$(mktemp -d)"
+ssh-keygen -t rsa -b 4096 -f "$KEY_DIRECTORY/id_rsa" -N ''
+ssh-keyscan github.com > "$KEY_DIRECTORY/known_hosts"
+ftpsh mkdir -p ./.ssh
+ftpsh "echo 'Deny from all' > ./.ssh/.htaccess"
+ftpsh --upload "$KEY_DIRECTORY/id_rsa" .ssh/id_rsa
+ftpsh --upload "$KEY_DIRECTORY/id_rsa.pub" .ssh/id_rsa.pub
+ftpsh --upload "$KEY_DIRECTORY/known_hosts" .ssh/known_hosts
+ftpsh "echo 'Host github.com' > .ssh/config; echo '    IdentityFile ~/.ssh/id_rsa' >> .ssh/config"
+ftpsh chmod 700 ./.ssh
+ftpsh chmod 600 ./.ssh/id_rsa
+ftpsh chmod 644 ./.ssh/id_rsa.pub ./.ssh/known_hosts ./.ssh/config
+ftpsh cat ./.ssh/id_rsa.pub
+rm -rf "$KEY_DIRECTORY"
+```
+
 ### poor man's git
 
 ```sh
-ftpsh mkdir tmp
-ftpsh cd tmp
-ftpsh git clone git@github.com:xxx/xxx.git .
+ftpsh git clone git@github.com:xxx/xxx.git tmp
 ftpsh mv tmp/.git .git
 ftpsh rm -rf tmp/
 ftpsh git status

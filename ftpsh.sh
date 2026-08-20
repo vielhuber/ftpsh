@@ -20,6 +20,9 @@ randomHex() {
 # parse flags (allow any order)
 DOWNLOAD_MODE=false
 DOWNLOAD_FILE=""
+UPLOAD_MODE=false
+UPLOAD_FILE=""
+UPLOAD_REMOTE_FILE=""
 ENV_FILE="$SCRIPT_DIR/.env"
 
 while [[ "$1" =~ ^-- ]]; do
@@ -33,6 +36,21 @@ while [[ "$1" =~ ^-- ]]; do
             fi
             DOWNLOAD_FILE="$2"
             shift 2
+            ;;
+        --upload)
+            UPLOAD_MODE=true
+            if [ -z "$2" ]; then
+                echo "Error: --upload requires a local filename argument"
+                echo "Example: ./ftpsh.sh --upload local-file.txt remote-file.txt"
+                exit 1
+            fi
+            UPLOAD_FILE="$2"
+            if [ -n "$3" ] && [[ ! "$3" =~ ^-- ]]; then
+                UPLOAD_REMOTE_FILE="$3"
+                shift 3
+            else
+                shift 2
+            fi
             ;;
         --env)
             if [ -z "$2" ]; then
@@ -54,6 +72,11 @@ while [[ "$1" =~ ^-- ]]; do
             ;;
     esac
 done
+
+if [ "$DOWNLOAD_MODE" = true ] && [ "$UPLOAD_MODE" = true ]; then
+    echo "Error: --download and --upload cannot be used together"
+    exit 1
+fi
 
 if [ -f "$ENV_FILE" ]; then
     # env file exists, load variables
@@ -118,6 +141,26 @@ if [ "$DOWNLOAD_MODE" = true ]; then
     exit $?
 fi
 
+if [ "$UPLOAD_MODE" = true ]; then
+    if [ ! -f "$UPLOAD_FILE" ]; then
+        echo "Error: Local upload file not found: $UPLOAD_FILE"
+        exit 1
+    fi
+    if [ -z "$UPLOAD_REMOTE_FILE" ]; then
+        UPLOAD_REMOTE_FILE="${UPLOAD_FILE##*/}"
+    fi
+    if [[ "$UPLOAD_REMOTE_FILE" = /* ]] || [[ "/$UPLOAD_REMOTE_FILE/" = *"/../"* ]]; then
+        echo "Error: Remote upload filename must stay within REMOTE_PATH"
+        exit 1
+    fi
+
+    curlWithProtocolSecurity -u "$SFTP_USER:$SFTP_PASS" \
+        -T "$UPLOAD_FILE" \
+        --progress-bar --show-error --fail --connect-timeout 10 --max-time 120 \
+        "$PROTOCOL://$SFTP_HOST:$SFTP_PORT/$REMOTE_PATH/$UPLOAD_REMOTE_FILE"
+    exit $?
+fi
+
 # command from arguments (all arguments are the command)
 CMD_ARGS=("$@")
 
@@ -130,6 +173,7 @@ if [ -z "$CMD" ]; then
     echo "Example: ./ftpsh.sh git status"
     echo "         ./ftpsh.sh --env my-project.env git status"
     echo "         ./ftpsh.sh --download backup.tar.gz > backup.tar.gz"
+    echo "         ./ftpsh.sh --upload local-file.txt remote-file.txt"
     exit 1
 fi
 
