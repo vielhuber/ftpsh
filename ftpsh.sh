@@ -165,8 +165,15 @@ fi
 CMD_ARGS=("$@")
 
 # build command from remaining arguments
-# simply join with spaces - the remote shell interprets them
-CMD="${CMD_ARGS[*]}"
+if [ "${#CMD_ARGS[@]}" -eq 1 ]; then
+    CMD="${CMD_ARGS[0]}"
+else
+    CMD=""
+    for CMD_ARG in "${CMD_ARGS[@]}"; do
+        QUOTED_CMD_ARG=${CMD_ARG//\'/\'\\\'\'}
+        CMD+="${CMD:+ }'$QUOTED_CMD_ARG'"
+    done
+fi
 
 if [ -z "$CMD" ]; then
     echo "Error: No command specified!"
