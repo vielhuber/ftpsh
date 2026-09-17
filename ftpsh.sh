@@ -79,10 +79,22 @@ if [ "$DOWNLOAD_MODE" = true ] && [ "$UPLOAD_MODE" = true ]; then
 fi
 
 if [ -f "$ENV_FILE" ]; then
-    # env file exists, load variables
-    set -a
-    source "$ENV_FILE"
-    set +a
+    # load variables literally without sourcing, so values may contain $, backticks or other shell metacharacters
+    while IFS= read -r envLine || [ -n "$envLine" ]; do
+        case "$envLine" in
+            ''|'#'*) continue ;;
+            *=*) ;;
+            *) continue ;;
+        esac
+        envKey="${envLine%%=*}"
+        envValue="${envLine#*=}"
+        # strip one enclosing pair of matching quotes
+        case "$envValue" in
+            \"*\") envValue="${envValue#\"}"; envValue="${envValue%\"}" ;;
+            \'*\') envValue="${envValue#\'}"; envValue="${envValue%\'}" ;;
+        esac
+        export "$envKey=$envValue"
+    done < "$ENV_FILE"
 fi
 # if env file doesn't exist or is not set, environment variables should be already set
 
@@ -123,20 +135,26 @@ curlWithProtocolSecurity() {
         return $?
     fi
 
-    curl --ssl-reqd "$@"
+    local tlsAttemptError
+    tlsAttemptError=$(mktemp)
+    curl --ssl-reqd "$@" 2>"$tlsAttemptError"
     local curlStatus=$?
-    if [ "$curlStatus" -ne 64 ]; then
+    # 64: server does not offer TLS; 60: server offers TLS but the certificate is not verifiable
+    if [ "$curlStatus" -ne 64 ] && [ "$curlStatus" -ne 60 ]; then
+        cat "$tlsAttemptError" >&2
+        rm -f "$tlsAttemptError"
         return "$curlStatus"
     fi
+    rm -f "$tlsAttemptError"
 
-    echo "Warning: FTPS is unavailable; falling back to unencrypted FTP." >&2
+    # TLS is unusable here; silently retry over plain FTP without the failed attempt's error output
     curl "$@"
 }
 
 # handle download mode or regular command mode
 if [ "$DOWNLOAD_MODE" = true ]; then
     # download mode: directly download file via http with progress
-    curl --progress-bar \
+    curl --progress-bar --fail --connect-timeout 10 \
         "$WEB_URL/$DOWNLOAD_FILE"
     exit $?
 fi
