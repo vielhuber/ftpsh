@@ -296,14 +296,24 @@ UPLOADED=true
 
 # standard mode: call file via http and output result directly
 curl -s -S --fail --connect-timeout 10 -H "X-Ftpsh-Token: $SECURITY_TOKEN" "$WEB_URL/$RAND_NAME" |
-    awk -v marker="$EXIT_MARKER" -v statusFile="$COMMAND_STATUS_FILE" '
+    LC_ALL=C awk -v marker="$EXIT_MARKER" -v statusFile="$COMMAND_STATUS_FILE" '
+        # the line break the runner puts in front of the marker is not part of the output (binary downloads stay exact)
         index($0, marker) == 1 {
+            printf "%s", held
+            held_line = 0
             print substr($0, length(marker) + 1) > statusFile
             next
         }
         {
-            print
-            fflush()
+            if (held_line) {
+                print held
+                fflush()
+            }
+            held = $0
+            held_line = 1
+        }
+        END {
+            if (held_line) print held
         }
     '
 PIPE_STATUSES=("${PIPESTATUS[@]}")
