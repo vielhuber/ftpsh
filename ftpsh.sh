@@ -129,6 +129,24 @@ else
     DELETE_CMD="RM"
 fi
 
+if [ "$PROTOCOL" = "sftp" ] && [ "$DOWNLOAD_MODE" = false ]; then
+    KNOWN_HOSTS="$HOME/.ssh/known_hosts"
+    HOST_ENTRY="$SFTP_HOST"
+    if [ "$SFTP_PORT" != 22 ]; then HOST_ENTRY="[$SFTP_HOST]:$SFTP_PORT"; fi
+    if ! ssh-keygen -F "$HOST_ENTRY" -f "$KNOWN_HOSTS" > /dev/null 2>&1; then
+        (umask 077; mkdir -p -- "$HOME/.ssh") || exit 1
+        # SSH records a new host key before attempting authentication.
+        ssh -F /dev/null -nT -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o HashKnownHosts=yes \
+            -o ConnectTimeout=8 -o PreferredAuthentications=none -o GlobalKnownHostsFile=/dev/null \
+            -o "UserKnownHostsFile=$KNOWN_HOSTS" -p "$SFTP_PORT" -l "$SFTP_USER" -- "$SFTP_HOST" exit \
+            > /dev/null 2>&1 || :
+        if ! ssh-keygen -F "$HOST_ENTRY" -f "$KNOWN_HOSTS" > /dev/null 2>&1; then
+            echo "Error: Could not record the SFTP host key for $HOST_ENTRY." >&2
+            exit 1
+        fi
+    fi
+fi
+
 curlWithProtocolSecurity() {
     if [ "$PROTOCOL" != "ftp" ]; then
         curl "$@"

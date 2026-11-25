@@ -73,6 +73,8 @@ if preset `ftpsh` automatically reads an `.env`-file. \
 if you want to choose another file, you can define one with `ftpsh --env my-project.env ...`. \
 if no `.env`-file is set or found, globally present environment variables are used.
 
+SFTP records new host keys in `~/.ssh/known_hosts` on first use via OpenSSH. Later transfers verify the recorded key.
+
 ## usage
 
 you can now execute any shell command on the remote server:
